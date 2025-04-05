@@ -15,4 +15,6 @@ loguru
 Celery
 redis
 gevent
+aioredis
 vine
+cryptography
