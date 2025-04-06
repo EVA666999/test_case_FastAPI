@@ -5,7 +5,10 @@ from models.secret import Secret
 from models.log import SecretLog
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 import os
+
+load_dotenv() 
 
 celery = Celery("secrets_app", broker="redis://localhost:6379/0")
 
@@ -30,7 +33,9 @@ def cleanup_expired_secrets():
         now = datetime.now(timezone.utc)
         
         expired_secrets = db.execute(
-            select(Secret).where(Secret.expires_at < now)
+            select(Secret).where(
+                (Secret.expires_at < now) & (Secret.expires_at != None)
+            )
         ).scalars().all()
         
         for secret in expired_secrets:
