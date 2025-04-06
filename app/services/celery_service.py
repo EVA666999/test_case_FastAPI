@@ -7,6 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
+from sqlalchemy import select, and_, func
+from datetime import datetime, timezone
 import logging
 
 # Настройка логирования
@@ -30,7 +32,6 @@ celery = Celery("secrets_app", broker="redis://localhost:6379/0")
 
 @celery.task(name='cleanup_expired_secrets')
 def cleanup_expired_secrets():
-    """Удаляет просроченные секреты"""
     logger.info("Начинаем проверку просроченных секретов")
     
     try:
@@ -41,17 +42,13 @@ def cleanup_expired_secrets():
             now = datetime.now(timezone.utc)
             logger.info(f"Текущее время UTC: {now}")
             
-            # Отладочная информация о всех секретах
-            all_secrets = db.execute(select(Secret)).scalars().all()
-            logger.info(f"Всего секретов в базе: {len(all_secrets)}")
-            
-            # Логирование всех секретов с их временем истечения
-            for s in all_secrets:
-                logger.info(f"Секрет ID {s.id}: expires_at={s.expires_at}, ttl_seconds={s.ttl_seconds}")
-            
+            # Получаем просроченные секреты
             expired_secrets = db.execute(
                 select(Secret).where(
-                    and_(Secret.expires_at != None, Secret.expires_at < now)
+                    and_(
+                        Secret.expires_at != None, 
+                        Secret.expires_at < func.now()
+                    )
                 )
             ).scalars().all()
             
@@ -59,6 +56,7 @@ def cleanup_expired_secrets():
             
             for secret in expired_secrets:
                 logger.info(f"Удаляем просроченный секрет с ID {secret.id}, expire_at={secret.expires_at}")
+                
                 log_entry = SecretLog(
                     secret_id=secret.id,
                     action="auto_delete",
@@ -76,5 +74,5 @@ def cleanup_expired_secrets():
         
         return f"Удалено {len(expired_secrets)} просроченных секретов"
     except Exception as e:
-        logger.error(f"Ошибка при очистке просроченных секретов: {e}")
+        logger.error(f"Ошибка при очистке просроченных секретов: {e}", exc_info=True)
         raise
