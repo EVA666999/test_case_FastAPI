@@ -23,8 +23,8 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = os.getenv("REDIS_PORT", 6380)
 REDIS_DB = os.getenv("REDIS_DB")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DB_HOST}:{DB_PORT}/{POSTGRES_DB}"
@@ -38,7 +38,9 @@ redis_client = redis.Redis(
 
 
 # Инициализируем Celery
-celery = Celery("secrets_app", broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/0", backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
+celery = Celery("secrets_app", 
+                broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/0", 
+                backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
 
 # Конфигурация Celery
 celery.conf.beat_schedule = {
@@ -75,7 +77,7 @@ def cleanup_expired_secrets():
             
             for secret in expired_secrets:
                 redis_client.delete(f"secret:{secret.id}")
-                
+
                 logger.info(f"Удаляем просроченный секрет:")
                 logger.info(f"  ID: {secret.id}")
                 logger.info(f"  Создан: {secret.created_at}")
