@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = os.getenv("REDIS_PORT", 6380)  # Возвращаем стандартный порт Redis
+REDIS_PORT = os.getenv("REDIS_PORT", 6379)  # Возвращаем стандартный порт Redis
 REDIS_DB = os.getenv("REDIS_DB", 0)
 
 redis_client = redis.Redis(

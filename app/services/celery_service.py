@@ -24,7 +24,7 @@ POSTGRES_DB = os.getenv("POSTGRES_DB")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = os.getenv("REDIS_PORT", 6380)
+REDIS_PORT = os.getenv("REDIS_PORT", 6379)
 REDIS_DB = os.getenv("REDIS_DB")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DB_HOST}:{DB_PORT}/{POSTGRES_DB}"
