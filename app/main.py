@@ -4,7 +4,6 @@ from routers import secret
 from services.redis_service import RedisService
 from services import celery_service
 
-# Обработчик жизненного цикла приложения
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Запуск приложения...")

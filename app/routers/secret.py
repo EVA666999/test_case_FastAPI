@@ -86,27 +86,29 @@ async def get_secret(
     if secret is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='Incorrect secret key'
+            detail='Secret not found'
         )
     
     now = datetime.now(timezone.utc)
 
-    if secret.expires_at and secret.expires_at < now:
+    if secret.expires_at < now:
         client_ip = request.client.host if request.client else None
         user_agent = request.headers.get("User-Agent", "Unknown")
         log_data = {
             "secret_id": secret.id,
-            "action": "read",
+            "action": "expired_access",
             "ip_address": client_ip,
             "user_agent": user_agent,
-            "ttl_seconds": secret.ttl_seconds,
-            "timestamp": datetime.now()
+            "additional_info": "Attempt to access expired secret"
         }
         await db.execute(insert(SecretLog).values(**log_data))
-
         await db.delete(secret)
-
         await db.commit()
+        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Secret has expired'
+        )
 
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "Unknown")
@@ -120,10 +122,55 @@ async def get_secret(
     }
     await db.execute(insert(SecretLog).values(**log_data))
 
-    await db.delete(secret)
-
-    await db.commit()
     decrypted_secret = EncryptionService.decrypt(secret.secret)
+    
+    await db.delete(secret)
+    await db.commit()
+    
     return {
         "secret": decrypted_secret
+    }
+
+@router.delete('/{secret_key}', status_code=status.HTTP_200_OK)
+async def delete_secret(
+                request: Request,
+                _: Annotated[None, Depends(no_cache_headers)],
+                db: Annotated[AsyncSession, Depends(get_db)], 
+                secret_key: str,
+                passphrase: str = None
+            ):
+    secret = await db.scalar(select(Secret).where(Secret.secret_key == secret_key))
+
+    if secret is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Secret not found'
+        )
+    
+    if secret.passphrase:
+        decrypted_passphrase = EncryptionService.decrypt(secret.passphrase)
+        if passphrase != decrypted_passphrase:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='Incorrect passphrase'
+            )
+    
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    log_data = {
+        "secret_id": secret.id,
+        "action": "delete",
+        "ip_address": client_ip,
+        "user_agent": user_agent,
+        "additional_info": "Deleted by user request"
+    }
+    await db.execute(insert(SecretLog).values(**log_data))
+    
+    await RedisService.delete_cached_secret(str(secret.id))
+    
+    await db.delete(secret)
+    await db.commit()
+    
+    return {
+        "status": "secret_deleted"
     }
