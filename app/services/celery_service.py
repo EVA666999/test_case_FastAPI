@@ -7,18 +7,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
-from sqlalchemy import select, and_, func
-from datetime import datetime, timezone
-import logging
+import redis
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Загружаем .env файл
 load_dotenv()
 
-# Подготавливаем параметры подключения к БД
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
@@ -27,52 +19,45 @@ DB_PORT = os.getenv("DB_PORT")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DB_HOST}:{DB_PORT}/{POSTGRES_DB}"
 
-# Инициализируем Celery
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"), 
+    port=int(os.getenv("REDIS_PORT", 6379)), 
+    db=int(os.getenv("REDIS_DB", 0))
+)
+
 celery = Celery("secrets_app", broker="redis://localhost:6379/0")
 
 @celery.task(name='cleanup_expired_secrets')
 def cleanup_expired_secrets():
-    logger.info("Начинаем проверку просроченных секретов")
+    engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(engine)
     
-    try:
-        engine = create_engine(DATABASE_URL)
-        SessionLocal = sessionmaker(engine)
+    with SessionLocal() as db:
+        now = datetime.now(timezone.utc)
         
-        with SessionLocal() as db:
-            now = datetime.now(timezone.utc)
-            logger.info(f"Текущее время UTC: {now}")
-            
-            # Получаем просроченные секреты
-            expired_secrets = db.execute(
-                select(Secret).where(
-                    and_(
-                        Secret.expires_at != None, 
-                        Secret.expires_at < func.now()
-                    )
+        expired_secrets = db.execute(
+            select(Secret).where(
+                and_(
+                    Secret.expires_at != None, 
+                    Secret.expires_at <= now
                 )
-            ).scalars().all()
+            )
+        ).scalars().all()
+        
+        for secret in expired_secrets:
+            redis_client.delete(f"secret:{secret.id}")
             
-            logger.info(f"Найдено просроченных секретов: {len(expired_secrets)}")
-            
-            for secret in expired_secrets:
-                logger.info(f"Удаляем просроченный секрет с ID {secret.id}, expire_at={secret.expires_at}")
-                
-                log_entry = SecretLog(
-                    secret_id=secret.id,
-                    action="auto_delete",
-                    ip_address="system",
-                    user_agent="Celery Task",
-                    ttl_seconds=secret.ttl_seconds,
-                    timestamp=now,
-                    additional_info="Secret expired and automatically deleted"
-                )
-                db.add(log_entry)
-                db.delete(secret)
-            
-            db.commit()
-            logger.info(f"Удалено {len(expired_secrets)} просроченных секретов")
+            log_entry = SecretLog(
+                secret_id=secret.id,
+                action="auto_delete",
+                ip_address="system",
+                user_agent="Celery Task",
+                ttl_seconds=secret.ttl_seconds,
+                timestamp=now
+            )
+            db.add(log_entry)
+            db.delete(secret)
+        
+        db.commit()
         
         return f"Удалено {len(expired_secrets)} просроченных секретов"
-    except Exception as e:
-        logger.error(f"Ошибка при очистке просроченных секретов: {e}", exc_info=True)
-        raise

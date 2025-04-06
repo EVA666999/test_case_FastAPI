@@ -27,6 +27,8 @@ async def create_secret(
 ):  
     
     secret_key = str(uuid.uuid4())
+    encrypted_secret_key = EncryptionService.encrypt(secret_key)
+
     encrypted_secret = EncryptionService.encrypt(create_secret.secret)
     encrypted_passphrase = EncryptionService.encrypt(create_secret.passphrase)
 
@@ -34,7 +36,7 @@ async def create_secret(
         "secret": encrypted_secret,
         "passphrase": encrypted_passphrase,
         "ttl_seconds": create_secret.ttl_seconds,
-        "secret_key": secret_key 
+        "secret_key": encrypted_secret_key 
     }
     
     if create_secret.ttl_seconds is not None:
@@ -103,6 +105,7 @@ async def get_secret(
         }
         await db.execute(insert(SecretLog).values(**log_data))
         await db.delete(secret)
+        await RedisService.delete_cached_secret(str(secret.id))
         await db.commit()
         
         raise HTTPException(
@@ -125,6 +128,7 @@ async def get_secret(
     decrypted_secret = EncryptionService.decrypt(secret.secret)
     
     await db.delete(secret)
+    await RedisService.delete_cached_secret(str(secret.id))
     await db.commit()
     
     return {

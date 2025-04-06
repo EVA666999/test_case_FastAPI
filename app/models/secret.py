@@ -19,7 +19,7 @@ class Secret(Base):
                                                       comment="Абсолютное время истечения срока действия секрета")
     ttl_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True, 
                                                   comment="Время жизни секрета в секундах от момента создания")
-    secret_key: Mapped[str] = mapped_column(String(36), unique=True, index=True, 
+    secret_key: Mapped[str] = mapped_column(String(360), unique=True, index=True, 
                                           comment="Уникальный ключ доступа к секрету")
     
     def __str__(self):
