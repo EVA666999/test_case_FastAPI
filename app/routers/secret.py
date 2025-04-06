@@ -36,14 +36,17 @@ async def create_secret(
     result = await db.execute(
         insert(Secret).values(**insert_data).returning(Secret.id)
     )
-    secret = result.scalar_one()
+    secret_id = result.scalar_one()
     
     await db.commit()
 
+    result = await db.execute(select(Secret).where(Secret.id == secret_id))
+    secret = result.scalar_one()
+
     secret_data = {
         "id": secret.id,
-        "secret": secret.secret,
-        "passphrase": secret.passphrase,
+        "secret": encrypted_secret,
+        "passphrase": encrypted_secret,
         "created_at": secret.created_at.isoformat(),
         "expires_at": secret.expires_at.isoformat() if secret.expires_at else None,
         "ttl_seconds": secret.ttl_seconds,

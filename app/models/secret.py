@@ -19,3 +19,9 @@ class Secret(Base):
                                                       comment="Абсолютное время истечения срока действия секрета")
     ttl_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True, 
                                                   comment="Время жизни секрета в секундах от момента создания")
+    
+    def __str__(self):
+        return str(self.id)
+    
+    def __repr__(self):
+        return f"Secret(id={self.id}, created_at={self.created_at}, expires_at={self.expires_at})"
