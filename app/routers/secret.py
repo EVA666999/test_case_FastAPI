@@ -73,7 +73,7 @@ async def create_secret(
     return {
         "secret_key": secret_key
     }
-#cfd2b427-16d7-49f1-b323-ca7900a9751a
+
 @router.get('/{secret_key}', status_code=status.HTTP_200_OK)
 async def get_secret(
                 request: Request,
@@ -89,9 +89,27 @@ async def get_secret(
             detail='Incorrect secret key'
         )
     
+    now = datetime.now(timezone.utc)
+
+    if secret.expires_at and secret.expires_at < now:
+        client_ip = request.client.host if request.client else None
+        user_agent = request.headers.get("User-Agent", "Unknown")
+        log_data = {
+            "secret_id": secret.id,
+            "action": "read",
+            "ip_address": client_ip,
+            "user_agent": user_agent,
+            "ttl_seconds": secret.ttl_seconds,
+            "timestamp": datetime.now()
+        }
+        await db.execute(insert(SecretLog).values(**log_data))
+
+        await db.delete(secret)
+
+        await db.commit()
+
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "Unknown")
-    
     log_data = {
         "secret_id": secret.id,
         "action": "read",
@@ -105,7 +123,7 @@ async def get_secret(
     await db.delete(secret)
 
     await db.commit()
-
+    decrypted_secret = EncryptionService.decrypt(secret.secret)
     return {
-        "secret": secret
+        "secret": decrypted_secret
     }

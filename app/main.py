@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from routers import secret
 from services.redis_service import RedisService
+from services import celery_service
 
 # Обработчик жизненного цикла приложения
 @asynccontextmanager
@@ -18,6 +19,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+celery_service.celery.conf.beat_schedule = {
+    'cleanup-expired-secrets': {
+        'task': 'worker.cleanup_expired_secrets',
+        'schedule': 3600.0,
+    },
+}
 
 app.include_router(secret.router)
 
