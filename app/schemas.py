@@ -5,4 +5,3 @@ class CreateSecret(BaseModel):
     secret: str
     passphrase: str | None = None
     ttl_seconds: int | None = None
-    secret_key: str

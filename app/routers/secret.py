@@ -28,15 +28,13 @@ async def create_secret(
     
     secret_key = str(uuid.uuid4())
     encrypted_secret = EncryptionService.encrypt(create_secret.secret)
-    
-    encrypted_passphrase = None
-    if create_secret.passphrase:
-        encrypted_passphrase = EncryptionService.encrypt(create_secret.passphrase)
+    encrypted_passphrase = EncryptionService.encrypt(create_secret.passphrase)
 
     insert_data = {
         "secret": encrypted_secret,
         "passphrase": encrypted_passphrase,
         "ttl_seconds": create_secret.ttl_seconds,
+        "secret_key": secret_key 
     }
     
     if create_secret.ttl_seconds is not None:
@@ -45,7 +43,6 @@ async def create_secret(
     result = await db.execute(
         insert(Secret).values(**insert_data).returning(Secret)
     )
-    secret_key_uuid = await db.execute(insert(Secret).values(secret_key).returning(Secret))
     secret = result.scalar_one()
 
     client_ip = request.client.host if request.client else None
