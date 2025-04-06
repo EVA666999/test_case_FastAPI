@@ -1,5 +1,6 @@
 from fastapi import Response
 
+
 def no_cache_headers(response: Response):
     """
     Добавляет заголовки, запрещающие кеширование на клиенте.

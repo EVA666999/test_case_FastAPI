@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
 from routers import secret
 from services.redis_service import RedisService
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,13 +14,13 @@ async def lifespan(app: FastAPI):
     print("Остановка приложения...")
     await RedisService.close()
 
+
 app = FastAPI(
     title="Secret Storage API",
     description="API для безопасного хранения секретов",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
 app.include_router(secret.router)
-

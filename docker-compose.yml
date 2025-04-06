@@ -31,6 +31,8 @@ services:
       - POSTGRES_INITDB_ARGS=--auth-host=md5 --auth-local=md5
     ports:
       - "5432:5432"
+    env_file:
+      - ./app/.env
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -43,7 +45,7 @@ services:
     ports:
       - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-h", "localhost", "-p", "6379", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

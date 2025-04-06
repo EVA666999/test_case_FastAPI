@@ -2,12 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка необходимых зависимостей
+# Установка необходимых зависимостей (добавлен netcat-openbsd)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     postgresql-client \
     wget \
+    netcat-openbsd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,14 +20,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем все остальное
 COPY ./app .
 
-# Создаем скрипт ожидания
+# Создаем скрипт ожидания с новым методом проверки Redis
 RUN echo '#!/bin/bash\n\
 while ! pg_isready -h $DB_HOST -p $DB_PORT -U $POSTGRES_USER 2>/dev/null; do\n\
     echo "Waiting for PostgreSQL to be ready..."\n\
     sleep 2\n\
 done\n\
-while ! redis-cli -h $REDIS_HOST -p $REDIS_PORT ping 2>/dev/null; do\n\
-    echo "Waiting for Redis to be ready..."\n\
+# Simpler check for Redis using nc (netcat)\n\
+echo "Checking Redis connection..."\n\
+for i in {1..30}; do\n\
+    if nc -z $REDIS_HOST $REDIS_PORT; then\n\
+        echo "Redis is available!"\n\
+        break\n\
+    fi\n\
+    echo "Waiting for Redis to be ready ($i/30)..."\n\
     sleep 2\n\
 done\n\
 exec "$@"' > /wait-for-services.sh \
