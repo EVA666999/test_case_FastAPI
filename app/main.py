@@ -21,8 +21,8 @@ app = FastAPI(
 
 celery_service.celery.conf.beat_schedule = {
     'cleanup-expired-secrets': {
-        'task': 'worker.cleanup_expired_secrets',
-        'schedule': 3600.0,
+        'task': 'services.celery_service.cleanup_expired_secrets',
+        'schedule': 60.0,
     },
 }
 

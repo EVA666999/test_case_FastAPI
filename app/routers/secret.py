@@ -114,7 +114,7 @@ async def get_secret(
     user_agent = request.headers.get("User-Agent", "Unknown")
     log_data = {
         "secret_id": secret.id,
-        "action": "read",
+        "action": "delete",
         "ip_address": client_ip,
         "user_agent": user_agent,
         "ttl_seconds": secret.ttl_seconds,
