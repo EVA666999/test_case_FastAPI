@@ -27,8 +27,6 @@ async def create_secret(
 ):  
     
     secret_key = str(uuid.uuid4())
-    encrypted_secret_key = EncryptionService.encrypt(secret_key)
-
     encrypted_secret = EncryptionService.encrypt(create_secret.secret)
     encrypted_passphrase = EncryptionService.encrypt(create_secret.passphrase)
 
@@ -36,7 +34,7 @@ async def create_secret(
         "secret": encrypted_secret,
         "passphrase": encrypted_passphrase,
         "ttl_seconds": create_secret.ttl_seconds,
-        "secret_key": encrypted_secret_key 
+        "secret_key": secret_key 
     }
     
     if create_secret.ttl_seconds is not None:
