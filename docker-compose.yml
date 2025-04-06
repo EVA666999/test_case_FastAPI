@@ -1,27 +1,78 @@
-version: '3'
+version: '3.8'
 
 services:
   app:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
     env_file:
       - ./app/.env
+    volumes:
+      - ./app:/app
 
   postgres:
     image: postgres:15
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    env_file:
-      - ./app/.env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:alpine
     ports:
       - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  celery:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A services.celery_service worker --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    env_file:
+      - ./app/.env
+
+  celery-beat:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A services.celery_service beat --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    env_file:
+      - ./app/.env
 
 volumes:
   postgres_data:

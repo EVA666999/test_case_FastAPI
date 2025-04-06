@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from routers import secret
 from services.redis_service import RedisService
-from services import celery_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,12 +18,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-celery_service.celery.conf.beat_schedule = {
-    'cleanup-expired-secrets': {
-        'task': 'cleanup_expired_secrets',
-        'schedule': 60.0,
-    },
-}
 
 app.include_router(secret.router)
 
