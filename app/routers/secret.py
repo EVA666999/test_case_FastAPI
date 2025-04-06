@@ -66,7 +66,6 @@ async def create_secret(
         "created_at": secret.created_at.isoformat(),
         "expires_at": secret.expires_at.isoformat() if secret.expires_at else None,
         "ttl_seconds": secret.ttl_seconds,
-
     }
     
     await RedisService.cache_secret(str(secret.id), secret_data, secret.ttl_seconds)
@@ -74,19 +73,20 @@ async def create_secret(
     return {
         "secret_key": secret_key
     }
-
+#cfd2b427-16d7-49f1-b323-ca7900a9751a
 @router.get('/{secret_key}', status_code=status.HTTP_200_OK)
 async def get_secret(
                 request: Request,
                 _: Annotated[None, Depends(no_cache_headers)],
                 db: Annotated[AsyncSession, Depends(get_db)], 
-                secret_id: int
+                secret_key: str
             ):
-    secret = await db.scalar(select(Secret).where(Secret.id == secret_id))
+    secret = await db.scalar(select(Secret).where(Secret.secret_key == secret_key))
+
     if secret is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='There is no secret found'
+            detail='Incorrect secret key'
         )
     
     client_ip = request.client.host if request.client else None
